@@ -12,8 +12,6 @@ set(
   NUUK_SRCS
   "../include/nuuk.h"
   "./nuuk.cpp"
-  "../include/luastate_manager.h"
-  "./luastate_manager.cpp"
   "./juce_bindings/juce.h"
   "./juce_bindings/application.h"
   "./juce_bindings/application.cpp"

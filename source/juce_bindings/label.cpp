@@ -1,0 +1,41 @@
+/* =================================================================
+ *
+ * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
+ * File: label.cpp
+ * Time-stamp: <2019-02-28 01:00:44>
+ * Description:
+ * Author: bin.gao
+ *
+ * =================================================================
+ */
+
+#include "./label.h"
+
+LUACOB_BIND_CLASS_BEGIN("Label", LLabel)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(setText)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(getText)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(getTextValue)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(setFont)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(getFont)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(setJustificationType)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(getJustificationType)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(setBorderSize)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(getBorderSize)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(attachToComponent)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(getAttachedComponent)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(isAttachedOnLeft)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(setMinimumHorizontalScale)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(getMinimumHorizontalScale)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(setKeyboardType)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(addListener)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(removeListener)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(setEditable)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(isEditableOnSingleClick)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(isEditableOnDoubleClick)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(doesLossOfFocusDiscardChanges)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(isEditable)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(showEditor)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(hideEditor)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(isBeingEdited)
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(getCurrentTextEditor)
+LUACOB_BIND_CLASS_END()
