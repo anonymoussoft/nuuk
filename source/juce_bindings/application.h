@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: application.h
- * Time-stamp: <2019-02-28 00:25:01>
+ * Time-stamp: <2019-02-28 06:32:42>
  * Description:
  * Author: bin.gao
  *
@@ -17,7 +17,7 @@
 
 class LApplication: public juce::JUCEApplication {
  public:
-    LUACOB_DECLARE_CLASS(LButton)
+    LUACOB_DECLARE_CLASS(LApplication)
 
  public:
     const juce::String getApplicationName() override {

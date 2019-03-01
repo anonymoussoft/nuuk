@@ -1,8 +1,8 @@
 /* =================================================================
  *
- * Copyright (C) 2018 qingteng<qingteng.me>.  All rights reserved.
+ * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: test_base.cpp
- * Time-stamp: <2018-12-10 13:07:19>
+ * Time-stamp: <2019-02-28 06:27:44>
  * Description:
  * Author: bin.gao
  *

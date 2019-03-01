@@ -1,8 +1,8 @@
 /* =================================================================
  *
- * Copyright (C) 2019 anonymoussoft<anonymoussoft.com>.  All rights reserved.
+ * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: resizable_window.cpp
- * Time-stamp: <2019-02-26 11:20:50>
+ * Time-stamp: <2019-02-28 06:28:08>
  * Description:
  * Author: bin.gao
  *
