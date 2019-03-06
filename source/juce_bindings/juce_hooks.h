@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: juce_hooks.h
- * Time-stamp: <2019-02-28 09:10:23>
+ * Time-stamp: <2019-03-03 20:08:16>
  * Description:
  * Author: bin.gao
  *
@@ -18,6 +18,15 @@
 namespace luacob {
 
 template<> inline juce::String luacob_l2n<juce::String>(lua_State *L, int i) {
+    size_t len;
+    const char *s = luaL_checklstring(L, i, &len);
+    juce::CharPointer_UTF8 cp(s);
+    juce::String str(cp, len);
+    lua_remove(L,i);
+    return str;
+}
+
+template<> inline const juce::String &luacob_l2n<const juce::String&>(lua_State *L, int i) {
     size_t len;
     const char *s = luaL_checklstring(L, i, &len);
     juce::CharPointer_UTF8 cp(s);

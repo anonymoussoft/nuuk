@@ -13,10 +13,12 @@ set(
   "../include/nuuk.h"
   "./nuuk.cpp"
   "./juce_bindings/juce.h"
-  "./juce_bindings/application.h"
-  "./juce_bindings/application.cpp"
-  "./juce_bindings/document_window.h"
-  "./juce_bindings/document_window.cpp"
+  "./juce_bindings/component.h"
+  "./juce_bindings/component.cpp"
+  # "./juce_bindings/application.h"
+  # "./juce_bindings/application.cpp"
+  # "./juce_bindings/document_window.h"
+  # "./juce_bindings/document_window.cpp"
   )
 
 add_library(${BINARY_NAME} STATIC ${NUUK_SRCS})

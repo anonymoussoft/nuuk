@@ -58,6 +58,12 @@ namespace luacob {
 class LuaObject;
 class LuaState;
 
+template<class> struct rm_func_cv; // undefined
+template<typename return_type, typename class_type, typename... arg_types>
+struct rm_func_cv<return_type(class_type::*)(arg_types...)>  { using type = return_type(class_type::*)(arg_types...); };
+template<typename return_type, typename class_type, typename... arg_types>
+struct rm_func_cv<return_type(class_type::*)(arg_types...) const>  { using type = return_type(class_type::*)(arg_types...); };
+
 template<typename T> void luacob_pushobj(lua_State *L, T &obj);
 template<typename T> T luacob_toobj(lua_State *L, int idx);
 
@@ -173,6 +179,11 @@ LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...)) {
         return 1;
     };
 }
+
+// template<typename return_type, typename T, typename... arg_types>
+// LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...) const) {
+
+// }
 
 template<typename T, typename... arg_types>
 LuacobObjectFunction LuacobAdapter(void(T::*func)(arg_types...)) {
@@ -678,7 +689,16 @@ class LuaObject {
     template<typename Func>
     LuaObject &RegisterObjectFunction(const char *funcName, Func func) {
         LuacobObjectFunction *obj_func = new LuacobObjectFunction;
-        *obj_func = LuacobAdapter(func);
+
+        //*obj_func = LuacobAdapter((typename std::conditional<
+        //    std::is_const<Func>::value,
+        //    typename std::remove_const<Func>::type,
+        //    Func>::type)(func));
+        //*obj_func = LuacobAdapter((typename std::remove_cv<Func>::type) (func));
+        // *obj_func = LuacobAdapter(func);
+        *obj_func = LuacobAdapter((typename rm_func_cv<Func>::type)(func));
+        //*obj_func = LuacobAdapter((typename std::remove_cv<Func>::type)(func));
+        //*obj_func = LuacobAdapter(func);
         return RegisterHelper(
             funcName, LuacobObjectFunctionDispatcher, (void *)obj_func);
     }
