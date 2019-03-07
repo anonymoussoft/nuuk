@@ -5,6 +5,7 @@
 #include <functional>
 #include <utility>
 #include <string.h>
+#include <map>
 #include <assert.h>
 #include <iostream>
 
@@ -68,93 +69,84 @@ template<typename T> void luacob_pushobj(lua_State *L, T &obj);
 template<typename T> T luacob_toobj(lua_State *L, int idx);
 
 // lua index value to native。return stack[i]
+
 template<typename T>
-T luacob_l2n(lua_State *L, int i) { return luacob_toobj<T>(L, i); }
-template<> inline bool luacob_l2n<bool>(lua_State *L, int i) {
+T luacob_basic_l2n(lua_State *L, int i) { return luacob_toobj<T>(L, i); }
+template<> inline bool luacob_basic_l2n<bool>(lua_State *L, int i) {
     return lua_toboolean(L, i) != 0; }
-template<> inline char luacob_l2n<char>(lua_State *L, int i) {
+template<> inline char luacob_basic_l2n<char>(lua_State *L, int i) {
     return (char)luaL_checkinteger(L, i); }
-template<> inline unsigned char luacob_l2n<unsigned char>(lua_State *L, int i) {
+template<> inline unsigned char luacob_basic_l2n<unsigned char>(lua_State *L, int i) {
     return (unsigned char)luaL_checkinteger(L, i); }
-template<> inline short luacob_l2n<short>(lua_State *L, int i) {
+template<> inline short luacob_basic_l2n<short>(lua_State *L, int i) {
     return (short)luaL_checkinteger(L, i); }
-template<> inline unsigned short luacob_l2n<unsigned short>(lua_State *L, int i) {
+template<> inline unsigned short luacob_basic_l2n<unsigned short>(lua_State *L, int i) {
     return (unsigned short)luaL_checkinteger(L, i); }
-template<> inline int luacob_l2n<int>(lua_State *L, int i) {
+template<> inline int luacob_basic_l2n<int>(lua_State *L, int i) {
     return (int)luaL_checkinteger(L, i); }
-template<> inline unsigned int luacob_l2n<unsigned int>(lua_State *L, int i) {
+template<> inline unsigned int luacob_basic_l2n<unsigned int>(lua_State *L, int i) {
     return (unsigned int)luaL_checkinteger(L, i); }
-template<> inline long luacob_l2n<long>(lua_State *L, int i) {
+template<> inline long luacob_basic_l2n<long>(lua_State *L, int i) {
     return (long)luaL_checkinteger(L, i); }
-template<> inline unsigned long luacob_l2n<unsigned long>(lua_State *L, int i) {
+template<> inline unsigned long luacob_basic_l2n<unsigned long>(lua_State *L, int i) {
     return (unsigned long)luaL_checkinteger(L, i); }
-template<> inline long long luacob_l2n<long long>(lua_State *L, int i) {
+template<> inline long long luacob_basic_l2n<long long>(lua_State *L, int i) {
     return luaL_checkinteger(L, i); }
-template<> inline unsigned long long luacob_l2n<unsigned long long>(lua_State *L, int i) {
+template<> inline unsigned long long luacob_basic_l2n<unsigned long long>(lua_State *L, int i) {
     return (unsigned long long)luaL_checkinteger(L, i); }
-template<> inline float luacob_l2n<float>(lua_State *L, int i) {
+template<> inline float luacob_basic_l2n<float>(lua_State *L, int i) {
     return (float)luaL_checknumber(L, i); }
-template<> inline double luacob_l2n<double>(lua_State *L, int i) {
+template<> inline double luacob_basic_l2n<double>(lua_State *L, int i) {
     return luaL_checknumber(L, i); }
-template<> inline const char *luacob_l2n<const char*>(lua_State *L, int i) {
+template<> inline const char *luacob_basic_l2n<const char*>(lua_State *L, int i) {
     return luaL_checkstring(L, i); }
-template<> inline std::string luacob_l2n<std::string>(lua_State *L, int i) {
+template<> inline std::string luacob_basic_l2n<std::string>(lua_State *L, int i) {
     size_t len = 0;
     const char *str = luaL_checklstring(L, i, &len);
     return std::string(str, len);
 }
 
+template <typename T>
+struct type{};
+
+template<typename T>
+T luacob_l2n(type<T>, lua_State *L, int i) { return luacob_basic_l2n<std::remove_cv<T>::type>(L, i); }
+template<typename T>
+T luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<T>{}, L, i); }
+
 // native value push to lua stack
 template<typename T>
-void luacob_n2l(lua_State *L, T &v) { luacob_pushobj(L, v); }
-inline void luacob_n2l(lua_State *L, bool v) { lua_pushboolean(L, v); }
-inline void luacob_n2l(lua_State *L, char v) { lua_pushinteger(L, v); }
-inline void luacob_n2l(lua_State *L, unsigned char v) { lua_pushinteger(L, v); }
-inline void luacob_n2l(lua_State *L, short v) { lua_pushinteger(L, v); }
-inline void luacob_n2l(lua_State *L, unsigned short v) { lua_pushinteger(L, v); }
-inline void luacob_n2l(lua_State *L, int v) { lua_pushinteger(L, v); }
-inline void luacob_n2l(lua_State *L, unsigned int v) { lua_pushinteger(L, v); }
-inline void luacob_n2l(lua_State *L, long v) { lua_pushinteger(L, v); }
-inline void luacob_n2l(lua_State *L, unsigned long v) { lua_pushinteger(L, v); }
-inline void luacob_n2l(lua_State *L, long long v) { lua_pushinteger(L, (lua_Integer)v); }
-inline void luacob_n2l(lua_State *L, unsigned long long v) { lua_pushinteger(L, (lua_Integer)v); }
-inline void luacob_n2l(lua_State *L, float v) { lua_pushnumber(L, v); }
-inline void luacob_n2l(lua_State *L, double v) { lua_pushnumber(L, v); }
-inline void luacob_n2l(lua_State *L, char *v) { lua_pushstring(L, v); }
-inline void luacob_n2l(lua_State *L, const char *v) { lua_pushstring(L, v); }
-inline void luacob_n2l(lua_State *L, void *v) { lua_pushlightuserdata(L, v); }
-inline void luacob_n2l(lua_State *L, const void *v) { lua_pushlightuserdata(L, (void*)v); }
-inline void luacob_n2l(lua_State *L, const std::string &v) { lua_pushlstring(L, v.c_str(), v.size()); }
-inline void luacob_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L, f, 0); }
+void luacob_basic_n2l(lua_State *L, T v) { luacob_pushobj(L, v); }
+inline void luacob_basic_n2l(lua_State *L, bool v) { lua_pushboolean(L, v); }
+inline void luacob_basic_n2l(lua_State *L, char v) { lua_pushinteger(L, v); }
+inline void luacob_basic_n2l(lua_State *L, unsigned char v) { lua_pushinteger(L, v); }
+inline void luacob_basic_n2l(lua_State *L, short v) { lua_pushinteger(L, v); }
+inline void luacob_basic_n2l(lua_State *L, unsigned short v) { lua_pushinteger(L, v); }
+inline void luacob_basic_n2l(lua_State *L, int v) { lua_pushinteger(L, v); }
+inline void luacob_basic_n2l(lua_State *L, unsigned int v) { lua_pushinteger(L, v); }
+inline void luacob_basic_n2l(lua_State *L, long v) { lua_pushinteger(L, v); }
+inline void luacob_basic_n2l(lua_State *L, unsigned long v) { lua_pushinteger(L, v); }
+inline void luacob_basic_n2l(lua_State *L, long long v) { lua_pushinteger(L, (lua_Integer)v); }
+inline void luacob_basic_n2l(lua_State *L, unsigned long long v) { lua_pushinteger(L, (lua_Integer)v); }
+inline void luacob_basic_n2l(lua_State *L, float v) { lua_pushnumber(L, v); }
+inline void luacob_basic_n2l(lua_State *L, double v) { lua_pushnumber(L, v); }
+inline void luacob_basic_n2l(lua_State *L, char *v) { lua_pushstring(L, v); }
+inline void luacob_basic_n2l(lua_State *L, void *v) { lua_pushlightuserdata(L, v); }
+inline void luacob_basic_n2l(lua_State *L, std::string v) { lua_pushlstring(L, v.c_str(), v.size()); }
+inline void luacob_basic_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L, f, 0); }
 
-int dump_lightclass(lua_State* L) {
-    int n = lua_tointeger(L, lua_upvalueindex(1));
-    lua_newtable(L);
-    for(int i=1;i<=n;++i) {
-        lua_pushnumber(L,i);
-        lua_pushnumber(L,i);
-        lua_gettable(L,1);
-        lua_settable(L,2);
-    }
-    return 1;
-}
-template<class T>
-int luceI_pushlightclass(std::vector<T> a, const char *name, lua_CFunction dump = &dump_lightclass) {
-    lua_newtable(L);
-    int i = lua_gettop(L);
-    for(int j=0;j<a.size();++j) {
-        lua_pushnumber(L, a[j]);
-        lua_rawseti(L, i, j+1);
-    }
-    lua_pushstring(L, name);
-    lua_setfield(L, i, "__ltype");
-    if(dump) {
-        lua_pushnumber(L, a.size());
-        lua_pushcclosure(L, dump, 1);
-        lua_setfield(L, i, "dump");
-    }
-    return 1;
-}
+template<typename T>
+void luacob_n2l(lua_State *L, T v) { luacob_basic_n2l(L, (typename std::remove_cv<T>::type)(v)); }
+
+// template<class T>
+// void luacob_n2l(lua_State *L, const std::map<char*, T> &m) {
+//     lua_newtable(L);
+//     int i = lua_gettop(L);
+//     for (auto it = m.begin(); it != m.end(); ++it) {
+//         luacob_n2l(L, it->second);
+//         lua_setfield(L, i, it->first);
+//     }
+// }
 
 inline int LuacobAbsIndex(lua_State *L, int idx) {
     int top = lua_gettop(L);
@@ -253,7 +245,6 @@ inline void *GetObjectUserdata(lua_State *L) {
     } else {
         luaL_argerror(L, 1, "must be userdata or a table with a userdata member called __object");
     }
-
     return nullptr;
 }
 
@@ -919,7 +910,7 @@ int lua_object_gc(lua_State *L) {
 }
 
 template<>
-void luacob_pushobj(lua_State *L, const LuaObject &obj) {
+void luacob_pushobj(lua_State *L, LuaObject &obj) {
     obj.Push(LuacobTo_LuaState(L));
 }
 
