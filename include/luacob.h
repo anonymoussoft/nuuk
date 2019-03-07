@@ -127,6 +127,35 @@ inline void luacob_n2l(lua_State *L, const void *v) { lua_pushlightuserdata(L, (
 inline void luacob_n2l(lua_State *L, const std::string &v) { lua_pushlstring(L, v.c_str(), v.size()); }
 inline void luacob_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L, f, 0); }
 
+int dump_lightclass(lua_State* L) {
+    int n = lua_tointeger(L, lua_upvalueindex(1));
+    lua_newtable(L);
+    for(int i=1;i<=n;++i) {
+        lua_pushnumber(L,i);
+        lua_pushnumber(L,i);
+        lua_gettable(L,1);
+        lua_settable(L,2);
+    }
+    return 1;
+}
+template<class T>
+int luceI_pushlightclass(std::vector<T> a, const char *name, lua_CFunction dump = &dump_lightclass) {
+    lua_newtable(L);
+    int i = lua_gettop(L);
+    for(int j=0;j<a.size();++j) {
+        lua_pushnumber(L, a[j]);
+        lua_rawseti(L, i, j+1);
+    }
+    lua_pushstring(L, name);
+    lua_setfield(L, i, "__ltype");
+    if(dump) {
+        lua_pushnumber(L, a.size());
+        lua_pushcclosure(L, dump, 1);
+        lua_setfield(L, i, "dump");
+    }
+    return 1;
+}
+
 inline int LuacobAbsIndex(lua_State *L, int idx) {
     int top = lua_gettop(L);
     if (idx < 0 && -idx <= top)

@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: juce_hooks.h
- * Time-stamp: <2019-03-03 20:08:16>
+ * Time-stamp: <2019-03-07 01:03:51>
  * Description:
  * Author: bin.gao
  *
@@ -39,6 +39,33 @@ inline void luacob_n2l(lua_State *L, juce::String &v) {
     std::string str = v.toStdString();
     lua_pushlstring(L, str.c_str(), str.length());
 }
+
+// template<class T>
+// int luacob_n2l(const juce::Range<T>&);
+template<class T>
+int luacob_n2l(const juce::Point<T>&) {
+    luceI_pushlightclass<T>({p.getX(), p.getY()}, "lightLPoint");
+}
+// template<class T>
+// int luacob_n2l(const juce::Rectangle<T>&);
+// template<class T>
+// int luacob_n2l(const juce::Line<T>&);
+// template<class T, class U>
+// int luacob_n2l( const OwnedArray<U>&);
+// template<class T>
+// int luacob_n2l(const Array<T>&);
+// template<class T>
+// int luacob_n2l( const juce::SparseSet<T>& r );
+
+// int luacob_n2l(const juce::AffineTransform&);
+// int luacob_n2l(const std::list<var>);
+// int luacob_n2l(const juce::RectanglePlacement&);
+// int luacob_n2l(const StringArray& sa);
+// int luacob_n2l(const StringPairArray& sa);
+// int luacob_n2l(const Array<var>& val);
+
+template<class T>
+int luacob_n2l(const T* buffer, int size);
 
 };
 
