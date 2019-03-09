@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: component.cpp
- * Time-stamp: <2019-03-06 01:10:40>
+ * Time-stamp: <2019-03-09 00:43:29>
  * Description:
  * Author: bin.gao
  *
@@ -162,10 +162,10 @@ LUACOB_BIND_CLASS_MEMBER_FUNCTION(isPaintingUnclipped)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setPaintingIsUnclipped)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(getComponentEffect)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setComponentEffect)
-LUACOB_BIND_CLASS_MEMBER_FUNCTION(getLookAndFeel)
-LUACOB_BIND_CLASS_MEMBER_FUNCTION(setLookAndFeel)
-LUACOB_BIND_CLASS_MEMBER_FUNCTION(lookAndFeelChanged)
-LUACOB_BIND_CLASS_MEMBER_FUNCTION(sendLookAndFeelChange)
+// LUACOB_BIND_CLASS_MEMBER_FUNCTION(getLookAndFeel)
+// LUACOB_BIND_CLASS_MEMBER_FUNCTION(setLookAndFeel)
+// LUACOB_BIND_CLASS_MEMBER_FUNCTION(lookAndFeelChanged)
+// LUACOB_BIND_CLASS_MEMBER_FUNCTION(sendLookAndFeelChange)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(isOpaque)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setOpaque)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(isBroughtToFrontOnMouseClick)

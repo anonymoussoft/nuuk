@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: juce_hooks.h
- * Time-stamp: <2019-03-07 10:02:55>
+ * Time-stamp: <2019-03-09 01:00:57>
  * Description:
  * Author: bin.gao
  *
@@ -20,7 +20,7 @@
 
 namespace luacob {
 
-template<> inline juce::String luacob_l2n<juce::String>(lua_State *L, int i) {
+template<> inline juce::String luacob_basic_l2n<juce::String>(lua_State *L, int i) {
     size_t len;
     const char *s = luaL_checklstring(L, i, &len);
     juce::CharPointer_UTF8 cp(s);
@@ -29,15 +29,15 @@ template<> inline juce::String luacob_l2n<juce::String>(lua_State *L, int i) {
     return str;
 }
 
-inline void luacob_basic_n2l(lua_State *L, juce::String &v) {
+inline void luacob_basic_n2l(lua_State *L, juce::String v) {
     std::string str = v.toStdString();
     luacob_n2l(L, str);
 }
 
 template<typename T>
 juce::Range<T> luacob_l2n(type<juce::Range<T>>, lua_State *L, int i) {
-    luacob::LuaObject obj(L, i);
-    juce::Range<T> r(obj.Get("start"), obj.Get("end"));
+    luacob::LuaObject obj(LuacobTo_LuaState(L), i);
+    juce::Range<T> r(obj.Get("start").Value<T>(), obj.Get("end").Value<T>());
     return r;
 }
 
@@ -52,8 +52,8 @@ void luacob_basic_n2l(lua_State *L, const juce::Range<T> &v) {
 
 template<typename T>
 juce::Point<T> luacob_l2n(type<juce::Range<T>>, lua_State *L, int i) {
-    luacob::LuaObject obj(L, i);
-    juce::Point<T> r(obj.Get("x"), obj.Get("y"));
+    luacob::LuaObject obj(LuacobTo_LuaState(L), i);
+    juce::Point<T> r(obj.Get("x").Value<T>(), obj.Get("y").Value<T>());
     return r;
 }
 
@@ -68,8 +68,9 @@ void luacob_basic_n2l(lua_State *L, juce::Point<T> &v) {
 
 template<class T>
 juce::Rectangle<T> luacob_l2n(type<juce::Rectangle<T>>, lua_State *L, int i) {
-    luacob::LuaObject obj(L, i);
-    juce::Rectangle<T> r(obj.Get("x"), obj.Get("y"), obj.Get("w"), obj.Get("h"));
+    luacob::LuaObject obj(LuacobTo_LuaState(L), i);
+    juce::Rectangle<T> r(obj.Get("x").Value<T>(), obj.Get("y").Value<T>(),
+                         obj.Get("w").Value<T>(), obj.Get("h").Value<T>());
     return r;
 }
 
@@ -86,9 +87,9 @@ void luacob_basic_n2l(lua_State *L, const juce::Rectangle<T> &v) {
 
 template<class T>
 juce::Line<T> luacob_l2n(type<juce::Line<T>>, lua_State *L, int i) {
-    luacob::LuaObject obj(L, i);
-    juce::Line<T> r(obj.Get("start_x"), obj.Get("start_y"),
-                         obj.Get("end_x"), obj.Get("end_y"));
+    luacob::LuaObject obj(LuacobTo_LuaState(L), i);
+    juce::Line<T> r(obj.Get("start_x").Value<T>(), obj.Get("start_y").Value<T>(),
+                    obj.Get("end_x").Value<T>(), obj.Get("end_y").Value<T>());
     return r;
 }
 

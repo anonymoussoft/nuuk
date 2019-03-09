@@ -110,7 +110,8 @@ template <typename T>
 struct type{};
 
 template<typename T>
-T luacob_l2n(type<T>, lua_State *L, int i) { return luacob_basic_l2n<std::remove_cv<T>::type>(L, i); }
+T luacob_l2n(type<T>, lua_State *L, int i) {
+    return luacob_basic_l2n<typename std::remove_cv<typename std::remove_reference<T>::type>::type>(L, i); }
 template<typename T>
 T luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<T>{}, L, i); }
 
@@ -136,7 +137,8 @@ inline void luacob_basic_n2l(lua_State *L, std::string v) { lua_pushlstring(L, v
 inline void luacob_basic_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L, f, 0); }
 
 template<typename T>
-void luacob_n2l(lua_State *L, T v) { luacob_basic_n2l(L, (typename std::remove_cv<T>::type)(v)); }
+void luacob_n2l(lua_State *L, T v) {
+    luacob_basic_n2l(L, (typename std::remove_cv<typename std::remove_reference<T>::type>::type)(v)); }
 
 // template<class T>
 // void luacob_n2l(lua_State *L, const std::map<char*, T> &m) {
