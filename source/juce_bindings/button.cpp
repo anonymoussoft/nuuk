@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: button.cpp
- * Time-stamp: <2019-02-26 11:34:10>
+ * Time-stamp: <2019-03-14 09:49:55>
  * Description:
  * Author: bin.gao
  *
@@ -12,6 +12,7 @@
 #include "./button.h"
 
 LUACOB_BIND_CLASS_BEGIN("Button", LButton)
+LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_BEGIN()
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setButtonText)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(getButtonText)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(isDown)
@@ -44,4 +45,5 @@ LUACOB_BIND_CLASS_MEMBER_FUNCTION(isConnectedOnTop)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(isConnectedOnBottom)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setState)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(getState)
+LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_END()
 LUACOB_BIND_CLASS_END()

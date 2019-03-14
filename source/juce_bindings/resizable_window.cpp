@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: resizable_window.cpp
- * Time-stamp: <2019-02-28 06:28:08>
+ * Time-stamp: <2019-03-14 09:50:55>
  * Description:
  * Author: bin.gao
  *
@@ -12,6 +12,7 @@
 #include "./resizable_window.h"
 
 LUACOB_BIND_CLASS_BEGIN("ResizableWindow", LResizableWindow)
+LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_BEGIN()
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(getBackgroundColour)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setBackgroundColour)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setResizable)
@@ -36,4 +37,5 @@ LUACOB_BIND_CLASS_MEMBER_FUNCTION(clearContentComponent)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setContentComponentSize)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(getBorderThickness)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(getContentComponentBorder)
+LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_END()
 LUACOB_BIND_CLASS_END()

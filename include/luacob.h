@@ -56,14 +56,19 @@ static void stackDump (lua_State *L) {
 
 namespace luacob {
 
+const int _in 0x01;
+const int _out 0x10;
+
 class LuaObject;
 class LuaState;
 
 template<class> struct rm_func_cv; // undefined
 template<typename return_type, typename class_type, typename... arg_types>
-struct rm_func_cv<return_type(class_type::*)(arg_types...)>  { using type = return_type(class_type::*)(arg_types...); };
+struct rm_func_cv<return_type(class_type::*)(arg_types...)>  {
+    using type = return_type(class_type::*)(arg_types...); };
 template<typename return_type, typename class_type, typename... arg_types>
-struct rm_func_cv<return_type(class_type::*)(arg_types...) const>  { using type = return_type(class_type::*)(arg_types...); };
+struct rm_func_cv<return_type(class_type::*)(arg_types...) const>  {
+    using type = return_type(class_type::*)(arg_types...); };
 
 template<typename T> void luacob_pushobj(lua_State *L, T &obj);
 template<typename T> T luacob_toobj(lua_State *L, int idx);
@@ -110,10 +115,10 @@ template <typename T>
 struct type{};
 
 template<typename T>
-T luacob_l2n(type<T>, lua_State *L, int i) {
-    return luacob_basic_l2n<typename std::remove_cv<typename std::remove_reference<T>::type>::type>(L, i); }
+typename std::decay<T>::type luacob_l2n(type<T>, lua_State *L, int i) {
+    return luacob_basic_l2n<typename std::decay<T>::type>(L, i); }
 template<typename T>
-T luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<T>{}, L, i); }
+typename std::decay<T>::type luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<T>{}, L, i); }
 
 // native value push to lua stack
 template<typename T>
@@ -173,6 +178,14 @@ return_type LuacobCallHelper(
     return (obj->*func)(luacob_l2n<arg_types>(L, Integers + 1)...);
 }
 
+template<size_t... Integers, typename return_type, typename class_type, typename... arg_types>
+return_type LuacobCallHelper(
+    lua_State *L, class_type *obj,
+    return_type(class_type::*func)(arg_types...), std::index_sequence<Integers...>&&) {
+    //auto params = { arg_types... };
+    return (obj->*func)(luacob_l2n<arg_types>(L, Integers + 1)...);
+}
+
 template<typename return_type, typename... arg_types>
 LuacobGlobalFunction LuacobAdapter(return_type(*func)(arg_types...)) {
     return [=](lua_State *L) {
@@ -201,6 +214,21 @@ LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...)) {
                                        std::make_index_sequence<sizeof...(arg_types)>()));
         return 1;
     };
+}
+
+template<typename return_type, typename T, typename... arg_types>
+LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...),
+                                   std::array<int, sizeof...(arg_types)> qualifiers) {
+    return [=](void *obj, lua_State *L) {
+               luacob_n2l(L, LuacobCallHelper(L, (T*)obj, func,
+                                              std::make_index_sequence<sizeof...(arg_types)>()));
+               for (auto i = 0; i < qualifiers.size(); ++i) {
+                   if (qualifiers.at(i) & _out != 0) {
+                       luacob_n2l();
+                   }
+               }
+               return 1;
+           };
 }
 
 // template<typename return_type, typename T, typename... arg_types>
@@ -1195,14 +1223,10 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
     luacob::InitMetatable(L, lua_gettop(L), false);                     \
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER_FUNCTION_AS(name, func) \
-    PushObjectFuncTbl(state, smtbl);  \
     smtbl.RegisterObjectSFunction(name, func);  \
-    lua_pop(L, 2);  \
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION_AS(name, func)    \
-    PushObjectFuncTbl(state, mtbl);            \
     mtbl.RegisterObjectFunction(name, func);    \
-    lua_pop(L, 2);                              \
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER_AS(name, member)    \
     smtbl.RegisterObjectSProperty(name, member, false); \
@@ -1210,17 +1234,31 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
 #define LUACOB_BIND_CLASS_MEMBER_AS(name, member)       \
     mtbl.RegisterObjectProperty(name, member, false);   \
 
-#define LUACOB_BIND_CLASS_STATIC_MEMBER_FUNCTION(func)              \
+// static member and function
+#define LUACOB_BIND_CLASS_STATIC_MEMBER_AND_FUNCTION_BEGIN(func)  \
+    PushObjectFuncTbl(state, smtbl);                          \
+
+#define LUACOB_BIND_CLASS_STATIC_MEMBER_FUNCTION(func)                  \
     LUACOB_BIND_CLASS_STATIC_MEMBER_FUNCTION_AS(#func, &class_type::func) \
+
+#define LUACOB_BIND_CLASS_STATIC_MEMBER_AND_FUNCTION_END()  \
+    lua_pop(L, 2);                                    \
+
+#define LUACOB_BIND_CLASS_STATIC_MEMBER(member)                         \
+    LUACOB_BIND_CLASS_STATIC_MEMBER_AS(#member, &class_type::member)    \
+
+// nostatic member and function
+#define LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_BEGIN(func)  \
+    PushObjectFuncTbl(state, mtbl);                          \
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION(func)               \
     LUACOB_BIND_CLASS_MEMBER_FUNCTION_AS(#func, &class_type::func)  \
 
-#define LUACOB_BIND_CLASS_STATIC_MEMBER(member)                 \
-    LUACOB_BIND_CLASS_STATIC_MEMBER_AS(#member, &class_type::member)  \
-
 #define LUACOB_BIND_CLASS_MEMBER(member)                 \
     LUACOB_BIND_CLASS_MEMBER_AS(#member, &class_type::member)  \
+
+#define LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_END() \
+    lua_pop(L, 2);                              \
 
 #define LUACOB_BIND_CLASS_PROPERTY(name, accessor, mutator)
 
