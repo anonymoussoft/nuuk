@@ -16,6 +16,8 @@ extern "C" {
 #include "lualib.h"
 }
 
+#define LUACOB_ARGS(...) {__VA_ARGS__}
+
 #define luacob_assert(e) if (!(e)) assert(0)
 #define luacob_throw(e) assert(0)
 
@@ -1286,31 +1288,31 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
     PushObjectFuncTbl(state, smtbl);                          \
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER_FUNCTION(func)                  \
-    LUACOB_BIND_CLASS_STATIC_MEMBER_FUNCTION_AS(#func, &class_type::func) \
+  smtbl.RegisterObjectSFunction(#func, &class_type::func);              \
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER_AND_FUNCTION_END()  \
     lua_pop(L, 2);                                    \
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER(member)                         \
-    LUACOB_BIND_CLASS_STATIC_MEMBER_AS(#member, &class_type::member)    \
+  smtbl.RegisterObjectSFunction(#member, &class_type::member);          \
 
 // nostatic member and function
 #define LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_BEGIN(func)  \
     PushObjectFuncTbl(state, mtbl);                          \
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION(func)               \
-    LUACOB_BIND_CLASS_MEMBER_FUNCTION_AS(#func, &class_type::func)  \
+  mtbl.RegisterObjectFunction(#func, &class_type::func);      \
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(func, qualifiers)                    \
-    LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET_AS(#func, &class_type::func, qualifiers)     \
+  mtbl.RegisterObjectFunction(#func, &class_type::func, qualifiers);  \
 
 #define LUACOB_BIND_CLASS_MEMBER(member)                 \
-    LUACOB_BIND_CLASS_MEMBER_AS(#member, &class_type::member)  \
+  mtbl.RegisterObjectProperty(#member, &class_type::member);    \
 
 #define LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_END() \
     lua_pop(L, 2);                              \
 
-#define LUACOB_BIND_CLASS_PROPERTY(name, accessor, mutator)
+//#define LUACOB_BIND_CLASS_PROPERTY(name, accessor, mutator)
 
 #define LUACOB_BIND_CLASS_END()                 \
     }                                           \
