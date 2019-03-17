@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <string>
+#include <vector>
 #include <functional>
 #include <utility>
 #include <string.h>
@@ -56,8 +57,8 @@ static void stackDump (lua_State *L) {
 
 namespace luacob {
 
-const int _in 0x01;
-const int _out 0x10;
+const int _in = 0x01;
+const int _out = 0x10;
 
 class LuaObject;
 class LuaState;
@@ -167,29 +168,55 @@ using LuacobObjectFunction = std::function<int(void*, lua_State*)>;
 
 template<size_t... Integers, typename return_type, typename... arg_types>
 return_type LuacobCallHelper(
-    lua_State *L, return_type(*func)(arg_types...), std::index_sequence<Integers...>&&) {
+    lua_State *L, return_type(*func)(arg_types...), std::index_sequence<Integers...> &&) {
     return (*func)(luacob_l2n<arg_types>(L, Integers + 1)...);
 }
 
 template<size_t... Integers, typename return_type, typename class_type, typename... arg_types>
 return_type LuacobCallHelper(
     lua_State *L, class_type *obj,
-    return_type(class_type::*func)(arg_types...), std::index_sequence<Integers...>&&) {
+    return_type(class_type::*func)(arg_types...), std::index_sequence<Integers...> &&) {
     return (obj->*func)(luacob_l2n<arg_types>(L, Integers + 1)...);
 }
 
 template<size_t... Integers, typename return_type, typename class_type, typename... arg_types>
 return_type LuacobCallHelper(
     lua_State *L, class_type *obj,
-    return_type(class_type::*func)(arg_types...), std::index_sequence<Integers...>&&) {
+    return_type(class_type::*func)(arg_types...),
+    std::index_sequence<Integers...> &&, std::tuple<arg_types...> &arg_tmp) {
     //auto params = { arg_types... };
-    return (obj->*func)(luacob_l2n<arg_types>(L, Integers + 1)...);
+    return (obj->*func)(std::get<Integers>(arg_tmp)...);
+}
+
+template<size_t... Integers, typename... arg_types>
+auto LuacobExtractFromL(lua_State *L, std::index_sequence<Integers...> &&) {
+    std::tuple<arg_types...> arg_tmp(luacob_l2n<arg_types>(L, Integers + 1)...);
+    return arg_tmp;
+}
+
+struct PushLFunctor
+{
+    template<typename T>
+    void operator()(lua_State *L, T t) const { luacob_n2l(L, t); }
+};
+
+template<std::size_t I = 0, typename FuncT, typename... Tp>
+inline typename std::enable_if<I == sizeof...(Tp), void>::type
+tuple_push_index(lua_State *, int, std::tuple<Tp...> &, FuncT)
+{ }
+
+template<std::size_t I = 0, typename FuncT, typename... Tp>
+inline typename std::enable_if<I < sizeof...(Tp), void>::type
+tuple_push_index(lua_State *L, int index, std::tuple<Tp...>& t, FuncT f)
+{
+    if (index == 0) f(L, std::get<I>(t));
+    tuple_push_index<I + 1, FuncT, Tp...>(L, index-1, t, f);
 }
 
 template<typename return_type, typename... arg_types>
 LuacobGlobalFunction LuacobAdapter(return_type(*func)(arg_types...)) {
     return [=](lua_State *L) {
-        luacob_n2l(L, LuacobCallHelper(L, func, std::make_index_sequence<sizeof...(arg_types)>()));
+        luacob_n2l(L, LuacobCallHelper(L, func, std::index_sequence_for<arg_types...>()));
         return 1;
     };
 }
@@ -197,7 +224,7 @@ LuacobGlobalFunction LuacobAdapter(return_type(*func)(arg_types...)) {
 template<typename... arg_types>
 LuacobGlobalFunction LuacobAdapter(void(*func)(arg_types...)) {
     return [=](lua_State *L) {
-        LuacobCallHelper(L, func, std::make_index_sequence<sizeof...(arg_types)>());
+        LuacobCallHelper(L, func, std::index_sequence_for<arg_types...>());
         return 0;
     };
 }
@@ -207,40 +234,57 @@ inline LuacobGlobalFunction LuacobAdapter(int(*func)(lua_State *L)) {
     return func;
 }
 
-template<typename return_type, typename T, typename... arg_types>
-LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...)) {
-    return [=](void *obj, lua_State *L) {
-        luacob_n2l(L, LuacobCallHelper(L, (T*)obj, func,
-                                       std::make_index_sequence<sizeof...(arg_types)>()));
-        return 1;
-    };
-}
+// template<typename return_type, typename T, typename... arg_types>
+// LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...)) {
+//     return [=](void *obj, lua_State *L) {
+//         luacob_n2l(L, LuacobCallHelper(L, (T*)obj, func,
+//                                        std::index_sequence_for<arg_types...>()));
+//         return 1;
+//     };
+// }
 
 template<typename return_type, typename T, typename... arg_types>
 LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...),
-                                   std::array<int, sizeof...(arg_types)> qualifiers) {
+                                   std::vector<int> &qualifiers) {
     return [=](void *obj, lua_State *L) {
-               luacob_n2l(L, LuacobCallHelper(L, (T*)obj, func,
-                                              std::make_index_sequence<sizeof...(arg_types)>()));
-               for (auto i = 0; i < qualifiers.size(); ++i) {
-                   if (qualifiers.at(i) & _out != 0) {
-                       luacob_n2l();
-                   }
-               }
-               return 1;
-           };
+        auto arg_tmp = LuacobExtractFromL(L, std::index_sequence_for<arg_types...>());
+        luacob_n2l(L, LuacobCallHelper(L, (T*)obj, func,
+                                       std::index_sequence_for<arg_types...>(), arg_tmp));
+        int result_cnt = 1;
+        for (auto i = 0; i < qualifiers.size(); ++i) {
+            if (qualifiers.at(i) & _out != 0) {
+                // luacob_n2l(L, std::get<i>(arg_tmp));
+                tuple_push_index(L, i, arg_tmp, PushLFunctor());
+                result_cnt ++;
+            }
+        }
+        return result_cnt;
+    };
 }
 
-// template<typename return_type, typename T, typename... arg_types>
-// LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...) const) {
-
+// template<typename T, typename... arg_types>
+// LuacobObjectFunction LuacobAdapter(void(T::*func)(arg_types...)) {
+//     return [=](void *obj, lua_State *L) {
+//         LuacobCallHelper(L, (T*)obj, func, std::index_sequence_for<arg_types...>());
+//         return 0;
+//     };
 // }
 
 template<typename T, typename... arg_types>
-LuacobObjectFunction LuacobAdapter(void(T::*func)(arg_types...)) {
+LuacobObjectFunction LuacobAdapter(void(T::*func)(arg_types...),
+                                   std::array<int, sizeof...(arg_types)> qualifiers) {
     return [=](void *obj, lua_State *L) {
-        LuacobCallHelper(L, (T*)obj, func, std::make_index_sequence<sizeof...(arg_types)>());
-        return 0;
+        auto arg_tmp = LuacobExtractFromL(L, std::index_sequence_for<arg_types...>());
+        LuacobCallHelper(L, (T*)obj, func, std::index_sequence_for<arg_types...>(), arg_tmp);
+        int result_cnt = 0;
+        for (int i = 0; i < qualifiers.size(); ++i) {
+            if (qualifiers.at(i) & _out != 0) {
+                // luacob_n2l(L, std::get<i>(arg_tmp));
+                tuple_push_index(L, i, arg_tmp, PushLFunctor());
+                result_cnt ++;
+            }
+        }
+        return result_cnt;
     };
 }
 
@@ -736,19 +780,19 @@ class LuaObject {
         return *this;
 	}
 
-    template<typename Func>
-    LuaObject &RegisterObjectFunction(const char *funcName, Func func) {
-        LuacobObjectFunction *obj_func = new LuacobObjectFunction;
+    // template<typename Func>
+    // LuaObject &RegisterObjectFunction(const char *funcName, Func func) {
+    //     LuacobObjectFunction *obj_func = new LuacobObjectFunction;
+    //     *obj_func = LuacobAdapter((typename rm_func_cv<Func>::type)(func));
+    //     return RegisterHelper(
+    //         funcName, LuacobObjectFunctionDispatcher, (void *)obj_func);
+    // }
 
-        //*obj_func = LuacobAdapter((typename std::conditional<
-        //    std::is_const<Func>::value,
-        //    typename std::remove_const<Func>::type,
-        //    Func>::type)(func));
-        //*obj_func = LuacobAdapter((typename std::remove_cv<Func>::type) (func));
-        // *obj_func = LuacobAdapter(func);
-        *obj_func = LuacobAdapter((typename rm_func_cv<Func>::type)(func));
-        //*obj_func = LuacobAdapter((typename std::remove_cv<Func>::type)(func));
-        //*obj_func = LuacobAdapter(func);
+    template<typename Func>
+    LuaObject &RegisterObjectFunction(const char *funcName, Func func,
+                                      std::vector<int> qualifiers) {
+        LuacobObjectFunction *obj_func = new LuacobObjectFunction;
+        *obj_func = LuacobAdapter((typename rm_func_cv<Func>::type)(func), qualifiers);
         return RegisterHelper(
             funcName, LuacobObjectFunctionDispatcher, (void *)obj_func);
     }
@@ -1093,7 +1137,7 @@ bool luacob_callfunc(
     int _[] = { 0, (luacob_n2l(L, args), 0)... };
     if (!luacob_callfunc(L, err, sizeof...(arg_types), sizeof...(ret_types)))
         return false;
-    luacob_l2n_mutil(L, rets, std::make_index_sequence<sizeof...(ret_types)>());
+    luacob_l2n_mutil(L, rets, std::index_sequence_for<ret_types...>());
     return true;
 }
 
@@ -1105,7 +1149,7 @@ bool luacob_call_table_function(
     int _[] = { 0, (luacob_n2l(L, args), 0)... };
     if (!luacob_callfunc(L, err, sizeof...(arg_types), sizeof...(ret_types)))
         return false;
-    luacob_l2n_mutil(L, rets, std::make_index_sequence<sizeof...(ret_types)>());
+    luacob_l2n_mutil(L, rets, std::index_sequence_for<ret_types...>());
     return true;
 }
 
@@ -1117,7 +1161,7 @@ bool luacob_call_object_function(
     int _[] = { 0, (luacob_n2l(L, args), 0)... };
     if (!luacob_callfunc(L, err, sizeof...(arg_types), sizeof...(ret_types)))
         return false;
-    luacob_l2n_mutil(L, rets, std::make_index_sequence<sizeof...(ret_types)>());
+    luacob_l2n_mutil(L, rets, std::index_sequence_for<ret_types...>());
     return true;
 }
 
@@ -1129,7 +1173,7 @@ bool luacob_call_global_function(
     int _[] = { 0, (luacob_n2l(L, args), 0)... };
     if (!luacob_callfunc(L, err, sizeof...(arg_types), sizeof...(ret_types)))
         return false;
-    luacob_l2n_mutil(L, rets, std::make_index_sequence<sizeof...(ret_types)>());
+    luacob_l2n_mutil(L, rets, std::index_sequence_for<ret_types...>());
     return true;
 }
 
@@ -1226,7 +1270,10 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
     smtbl.RegisterObjectSFunction(name, func);  \
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION_AS(name, func)    \
-    mtbl.RegisterObjectFunction(name, func);    \
+    mtbl.RegisterObjectFunction(name, func, {});            \
+
+#define LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET_AS(name, func, qualifiers)   \
+    mtbl.RegisterObjectFunction(name, func, qualifiers);                          \
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER_AS(name, member)    \
     smtbl.RegisterObjectSProperty(name, member, false); \
@@ -1253,6 +1300,9 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION(func)               \
     LUACOB_BIND_CLASS_MEMBER_FUNCTION_AS(#func, &class_type::func)  \
+
+#define LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(func, qualifiers)                    \
+    LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET_AS(#func, &class_type::func, qualifiers)     \
 
 #define LUACOB_BIND_CLASS_MEMBER(member)                 \
     LUACOB_BIND_CLASS_MEMBER_AS(#member, &class_type::member)  \
