@@ -8,6 +8,8 @@ include_directories(../third_party/lua/src)
 include_directories(../third_party/juce)
 include_directories(../third_party/juce/JUCE/modules)
 
+add_definitions(-Wfatal-errors)
+
 set(
   NUUK_SRCS
   "../include/nuuk.h"

@@ -5,6 +5,8 @@ set(BINARY_NAME "test_base")
 include_directories(../..)
 include_directories(../lua-5.3.5/src)
 
+add_definitions(-Wfatal-errors)
+
 set(
   SRC_FILES
   "./test_base.cpp"

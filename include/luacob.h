@@ -146,7 +146,7 @@ inline void luacob_basic_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L
 
 template<typename T>
 void luacob_n2l(lua_State *L, T v) {
-    luacob_basic_n2l(L, (typename std::remove_cv<typename std::remove_reference<T>::type>::type)(v)); }
+  luacob_basic_n2l(L, (typename std::decay<T>::type)(v)); }
 
 // template<class T>
 // void luacob_n2l(lua_State *L, const std::map<char*, T> &m) {
@@ -176,24 +176,28 @@ return_type LuacobCallHelper(
 
 template<size_t... Integers, typename return_type, typename class_type, typename... arg_types>
 return_type LuacobCallHelper(
-    lua_State *L, class_type *obj,
-    return_type(class_type::*func)(arg_types...), std::index_sequence<Integers...> &&) {
+    lua_State *L, class_type *obj, return_type(class_type::*func)(arg_types...),
+    std::index_sequence<Integers...> &&) {
     return (obj->*func)(luacob_l2n<arg_types>(L, Integers + 1)...);
 }
 
-template<size_t... Integers, typename return_type, typename class_type, typename... arg_types>
+template<size_t... Integers, typename return_type, typename class_type, typename... arg_types, typename Tuple>
 return_type LuacobCallHelper(
-    lua_State *L, class_type *obj,
-    return_type(class_type::*func)(arg_types...),
-    std::index_sequence<Integers...> &&, std::tuple<arg_types...> &arg_tmp) {
+    lua_State *L, class_type *obj, return_type(class_type::*func)(arg_types...),
+    std::index_sequence<Integers...> &&, Tuple &t) {
     //auto params = { arg_types... };
-    return (obj->*func)(std::get<Integers>(arg_tmp)...);
+    return (obj->*func)(std::get<Integers>(t)...);
 }
 
-template<size_t... Integers, typename... arg_types>
-auto LuacobExtractFromL(lua_State *L, std::index_sequence<Integers...> &&) {
-    std::tuple<arg_types...> arg_tmp(luacob_l2n<arg_types>(L, Integers + 1)...);
-    return arg_tmp;
+template <typename... T>
+using tuple_with_removed_refs = std::tuple<typename std::remove_reference<T>...>;
+
+template<size_t... Integers, typename return_type, typename class_type, typename... arg_types>
+auto LuacobExtractFromL(lua_State *L, return_type(class_type::*func)(arg_types...),
+                        std::index_sequence<Integers...> &&) {
+  std::tuple<typename std::decay<arg_types>::type...> arg_tmp(
+      luacob_l2n<typename std::decay<arg_types>::type>(L, Integers + 1)...);
+  return arg_tmp;
 }
 
 struct PushLFunctor
@@ -249,7 +253,7 @@ template<typename return_type, typename T, typename... arg_types>
 LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...),
                                    std::vector<int> &qualifiers) {
     return [=](void *obj, lua_State *L) {
-        auto arg_tmp = LuacobExtractFromL(L, std::index_sequence_for<arg_types...>());
+        auto arg_tmp = LuacobExtractFromL(L, func, std::index_sequence_for<arg_types...>());
         luacob_n2l(L, LuacobCallHelper(L, (T*)obj, func,
                                        std::index_sequence_for<arg_types...>(), arg_tmp));
         int result_cnt = 1;
@@ -274,9 +278,9 @@ LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...),
 
 template<typename T, typename... arg_types>
 LuacobObjectFunction LuacobAdapter(void(T::*func)(arg_types...),
-                                   std::array<int, sizeof...(arg_types)> qualifiers) {
+                                   std::vector<int> &qualifiers) {
     return [=](void *obj, lua_State *L) {
-        auto arg_tmp = LuacobExtractFromL(L, std::index_sequence_for<arg_types...>());
+        auto arg_tmp = LuacobExtractFromL(L, func, std::index_sequence_for<arg_types...>());
         LuacobCallHelper(L, (T*)obj, func, std::index_sequence_for<arg_types...>(), arg_tmp);
         int result_cnt = 0;
         for (int i = 0; i < qualifiers.size(); ++i) {
@@ -1301,7 +1305,7 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
     PushObjectFuncTbl(state, mtbl);                          \
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION(func)               \
-  mtbl.RegisterObjectFunction(#func, &class_type::func);      \
+  mtbl.RegisterObjectFunction(#func, &class_type::func, {});  \
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(func, qualifiers)                    \
   mtbl.RegisterObjectFunction(#func, &class_type::func, qualifiers);  \

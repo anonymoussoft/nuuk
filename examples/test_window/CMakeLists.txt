@@ -6,6 +6,8 @@ include_directories(../../include)
 include_directories(../../third_party)
 include_directories(../../third_party/lua/src)
 
+add_definitions(-Wfatal-errors)
+
 set(
   TEST_SRCS
   "./main.cpp"
