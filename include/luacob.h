@@ -73,7 +73,7 @@ template<typename return_type, typename class_type, typename... arg_types>
 struct rm_func_cv<return_type(class_type::*)(arg_types...) const>  {
   using type = return_type(class_type::*)(arg_types...); };
 
-template<typename T> void luacob_pushobj(lua_State *L, T &obj);
+template<typename T> void luacob_pushobj(lua_State *L, T obj);
 template<typename T> T luacob_toobj(lua_State *L, int idx);
 
 // lua index value to native。return stack[i]
@@ -140,6 +140,7 @@ inline void luacob_basic_n2l(lua_State *L, unsigned long long v) { lua_pushinteg
 inline void luacob_basic_n2l(lua_State *L, float v) { lua_pushnumber(L, v); }
 inline void luacob_basic_n2l(lua_State *L, double v) { lua_pushnumber(L, v); }
 inline void luacob_basic_n2l(lua_State *L, char *v) { lua_pushstring(L, v); }
+inline void luacob_basic_n2l(lua_State *L, char const *v) { lua_pushstring(L, v); }
 inline void luacob_basic_n2l(lua_State *L, void *v) { lua_pushlightuserdata(L, v); }
 inline void luacob_basic_n2l(lua_State *L, std::string v) { lua_pushlstring(L, v.c_str(), v.size()); }
 inline void luacob_basic_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L, f, 0); }
@@ -196,7 +197,7 @@ template<size_t... Integers, typename return_type, typename class_type, typename
 auto LuacobExtractFromL(lua_State *L, return_type(class_type::*func)(arg_types...),
                         std::index_sequence<Integers...> &&) {
   std::tuple<std::decay_t<arg_types>...> arg_tmp(
-      luacob_l2n<std::decay_t<arg_types>>(L, Integers + 1)...);
+      luacob_l2n<std::decay_t<arg_types>>(L, Integers + 2)...);
   return arg_tmp;
 }
 
@@ -990,7 +991,7 @@ int lua_object_gc(lua_State *L) {
 }
 
 template<>
-void luacob_pushobj(lua_State *L, LuaObject &obj) {
+void luacob_pushobj(lua_State *L, LuaObject obj) {
   obj.Push(LuacobTo_LuaState(L));
 }
 
@@ -1235,6 +1236,47 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
   static void luacob_register_class(luacob::LuaState *state);   \
 
 #define LUACOB_BIND_WRAPPER_CLASS_BEGIN(bindname, wrapper_class, classname) \
+  template<>  \
+  int wrapper_class::luacob_create_from_script(lua_State *L) {          \
+    luacob::LuaState *state = LuacobTo_LuaState(L);                     \
+    luacob::LuaObject ins;                                              \
+    ins.AssignNewTable(state);                                          \
+                                                                        \
+    wrapper_class *obj = LuacobCreateObj();                             \
+    ins.Set("__object", reinterpret_cast<void*>(obj));                  \
+    luacob::LuaObject globals = state->GetGlobals();                    \
+    luacob::LuaObject mtbl = globals.Get(                               \
+        LUACOB_CLASS_METATABLE_NAME(wrapper_class));                    \
+    ins.SetMetatable(mtbl);                                             \
+                                                                        \
+    state->Push(ins);                                                   \
+    return 1;                                                           \
+  }                                                                     \
+                                                                        \
+  template<>                                                            \
+  void wrapper_class::luacob_register_class(luacob::LuaState *state) {  \
+  typedef classname class_type;                                         \
+                                                                        \
+  lua_State *L = LuacobTo_lua_State(state);                             \
+  luacob::LuaObject globals = state->GetGlobals();                      \
+  luacob::LuaObject smtbl = globals.CreateTable(                        \
+      LUACOB_CLASS_SMETATABLE_NAME(wrapper_class));                     \
+  smtbl.Set("__call", wrapper_class::luacob_create_from_script);        \
+  state->Push(smtbl);                                                   \
+  luacob::InitMetatable(L, lua_gettop(L), false);                       \
+  luacob::LuaObject class_obj;                                          \
+  class_obj.AssignNewTable(state);                                      \
+                                                                        \
+  class_obj.SetMetatable(smtbl);                                        \
+  globals.Set(bindname, class_obj);                                     \
+                                                                        \
+  luacob::LuaObject mtbl = globals.CreateTable(                         \
+      LUACOB_CLASS_METATABLE_NAME(wrapper_class));                      \
+  state->Push(mtbl);                                                    \
+  luacob::InitMetatable(L, lua_gettop(L), false);                       \
+
+
+#define LUACOB_BIND_PURE_CLASS_BEGIN(bindname, wrapper_class, classname) \
   int wrapper_class::luacob_create_from_script(lua_State *L) {          \
     luacob::LuaState *state = LuacobTo_LuaState(L);                     \
     luacob::LuaObject ins;                                              \
@@ -1272,8 +1314,9 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
   state->Push(mtbl);                                                    \
   luacob::InitMetatable(L, lua_gettop(L), false);                       \
 
-#define LUACOB_BIND_CLASS_BEGIN(bindname, classname)                \
-  LUACOB_BIND_WRAPPER_CLASS_BEGIN(bindname, classname, classname)   \
+#define LUACOB_BIND_CLASS_BEGIN(bindname, classname)              \
+  LUACOB_BIND_PURE_CLASS_BEGIN(bindname, classname, classname)   \
+
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER_FUNCTION_AS(name, func) \
   smtbl.RegisterObjectSFunction(name, func);                    \
@@ -1291,7 +1334,7 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
   mtbl.RegisterObjectProperty(name, member, false); \
 
 // static member and function
-#define LUACOB_BIND_CLASS_STATIC_MEMBER_AND_FUNCTION_BEGIN(func)    \
+#define LUACOB_BIND_CLASS_STATIC_MEMBER_AND_FUNCTION_BEGIN()    \
   PushObjectFuncTbl(state, smtbl);                                  \
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER_FUNCTION(func)      \
@@ -1301,10 +1344,10 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
   lua_pop(L, 2);                                            \
 
 #define LUACOB_BIND_CLASS_STATIC_MEMBER(member)                 \
-  smtbl.RegisterObjectSFunction(#member, &class_type::member);  \
+  smtbl.RegisterObjectSProperty(#member, &class_type::member, false); \
 
 // nostatic member and function
-#define LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_BEGIN(func)   \
+#define LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_BEGIN()   \
   PushObjectFuncTbl(state, mtbl);                           \
 
 #define LUACOB_BIND_CLASS_MEMBER_FUNCTION(func)                 \
@@ -1314,7 +1357,7 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
   mtbl.RegisterObjectFunction(#func, &class_type::func, qualifiers);    \
 
 #define LUACOB_BIND_CLASS_MEMBER(member)                        \
-  mtbl.RegisterObjectProperty(#member, &class_type::member);    \
+  mtbl.RegisterObjectProperty(#member, &class_type::member, false);   \
 
 #define LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_END() \
   lua_pop(L, 2);                                    \
@@ -1328,4 +1371,21 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
   }                                             \
 
 #define LUACOB_REGISTER_CLASS(state, classname) \
-  classname::luacob_register_class(state);
+  classname::luacob_register_class(state);  \
+
+template<typename T>
+class LuacobWrapper {
+ public:
+  explicit LuacobWrapper(T *p) throw() : p_(p) {};
+
+ public:
+  LUACOB_DECLARE_CLASS(LuacobWrapper<T>);
+
+ public:
+  T* operator->() { return p_; }
+  //T &operator .() { return *p_; }
+  T* get() { return p_; }
+
+ private:
+  T *p_;
+};
