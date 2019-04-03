@@ -60,7 +60,7 @@ static void stackDump (lua_State *L) {
 namespace luacob {
 
 const int _in = 0x01;
-const int _out = 0x10;
+const int _out = 0x02;
 
 class LuaObject;
 class LuaState;
@@ -259,7 +259,7 @@ LuacobObjectFunction LuacobAdapter(return_type(T::*func)(arg_types...),
                                           std::index_sequence_for<arg_types...>(), arg_tmp));
            int result_cnt = 1;
            for (auto i = 0; i < qualifiers.size(); ++i) {
-             if (qualifiers.at(i) & _out != 0) {
+             if ((qualifiers.at(i) & _out) != 0) {
                // luacob_n2l(L, std::get<i>(arg_tmp));
                tuple_push_index(L, i, arg_tmp, PushLFunctor());
                result_cnt ++;
@@ -284,8 +284,9 @@ LuacobObjectFunction LuacobAdapter(void(T::*func)(arg_types...),
            auto arg_tmp = LuacobExtractFromL(L, func, std::index_sequence_for<arg_types...>());
            LuacobCallHelper(L, (T*)obj, func, std::index_sequence_for<arg_types...>(), arg_tmp);
            int result_cnt = 0;
+           std::cout << "1" << std::endl;
            for (int i = 0; i < qualifiers.size(); ++i) {
-             if (qualifiers.at(i) & _out != 0) {
+             if ((qualifiers.at(i) & _out) != 0) {
                // luacob_n2l(L, std::get<i>(arg_tmp));
                tuple_push_index(L, i, arg_tmp, PushLFunctor());
                result_cnt ++;

@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: component.cpp
- * Time-stamp: <2019-03-17 09:36:13>
+ * Time-stamp: <2019-04-04 05:43:23>
  * Description:
  * Author: bin.gao
  *
@@ -10,6 +10,8 @@
  */
 
 #include "./component.h"
+
+//class juce::Graphics;
 
 LUACOB_BIND_CLASS_BEGIN("Component", LComponent)
 
@@ -202,8 +204,8 @@ LUACOB_BIND_CLASS_MEMBER_FUNCTION(alphaChanged)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(getMouseCursor)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(setMouseCursor)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(updateMouseCursor)
-LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(paint, LUACOB_ARGS(luacob::_out))
-LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(paintOverChildren, LUACOB_ARGS(luacob::_out))
+//LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(paint, LUACOB_ARGS(luacob::_out))
+//LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(paintOverChildren, LUACOB_ARGS(luacob::_out))
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(mouseMove)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(mouseEnter)
 LUACOB_BIND_CLASS_MEMBER_FUNCTION(mouseExit)
