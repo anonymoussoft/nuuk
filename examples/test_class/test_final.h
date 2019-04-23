@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: final.h
- * Time-stamp: <2019-04-04 05:31:39>
+ * Time-stamp: <2019-04-24 03:34:58>
  * Description:
  * Author: bin.gao
  *
@@ -13,18 +13,15 @@
 
 class FinalClass final {
  public:
-  int FuncA(int a, int b) {
+  int Add(int a, int b) {
     return a + b;
   }
 
-  void FuncB(std::string a) {
-    std::cout << "in FuncB " << a << std::endl;
-  }
-
-  int FuncC(std::string &a) {
-    a = "11";
-    std::cout << "a is " << a << std::endl;
-    return 2;
+  int MultiRet(int a, int &b, std::string &c) {
+    a += 1;
+    b += 1;
+    c += "_ret";
+    return 0;
   }
 };
 
@@ -46,19 +43,37 @@ void FinalClassWrapper::LuacobDestroyObj(FinalClassWrapper *obj) {
 
 LUACOB_BIND_WRAPPER_CLASS_BEGIN("FinalClass", FinalClassWrapper, FinalClass)
 LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_BEGIN()
-LUACOB_BIND_CLASS_MEMBER_FUNCTION(FuncA);
-LUACOB_BIND_CLASS_MEMBER_FUNCTION(FuncB);
-LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(FuncC, LUACOB_ARGS(luacob::_out));
+LUACOB_BIND_CLASS_MEMBER_FUNCTION(Add);
+LUACOB_BIND_CLASS_MEMBER_FUNCTION_MULTIRET(MultiRet, LUACOB_ARGS(luacob::_in, luacob::_out, luacob::_out));
 LUACOB_BIND_CLASS_MEMBER_AND_FUNCTION_END()
 LUACOB_BIND_CLASS_END()
 
 void test_final(luacob::LuaState *state) {
   LUACOB_REGISTER_CLASS(state, FinalClassWrapper);
-  DoString(state, "c = FinalClass()");
-  DoString(state, "print(c:FuncA(1, 2))");
-  DoString(state, "c:FuncB([[cc]])");
-  DoString(state, "i = [[22]]");
-  DoString(state, "ret, i = c:FuncC(i)");
-  DoString(state, "print(ret)");
-  DoString(state, "print(i)");
+
+  const char* script = R"foo(
+print("==== test final class begin ====")
+local final = FinalClass()
+local ret = final:Add(1, 2)
+if ret ~= 3 then
+    error("unexpected result from final:FuncA")
+end
+
+local a = 1
+local b = 2
+local c = "test"
+ret, b, c = final:MultiRet(a, b, c)
+if ret ~= 0 then
+    error("unexpected result from final:MultiRet, ret=" .. tostring(ret))
+end
+if b ~= 3 then
+    error("unexpected result from final:MultiRet, b=" .. tostring(b))
+end
+if c ~= "test_ret" then
+    error("unexpected result from final:MultiRet, c=" .. tostring(c))
+end
+print("==== test final class success ====\n")
+)foo";
+
+  DoString(state, script);
 }

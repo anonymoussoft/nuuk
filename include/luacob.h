@@ -473,14 +473,12 @@ template <typename Object, typename VarType>
 class PropertyHelper {
  public:
   static int PropertyGet(lua_State* L) {
-    stackDump(L);
     Object *obj = (Object*)GetObjectUserdata(L);
     void *offset = lua_touserdata(L, 3);
     luacob_n2l(L, *(VarType *)((unsigned char *)obj + (ptrdiff_t)offset));
     return 1;
   }
   static int PropertySet(lua_State* L) {
-    stackDump(L);
     Object *obj = (Object*)GetObjectUserdata(L);
     void *offset = lua_touserdata(L, 4);
     *(VarType *)((unsigned char *)obj + (ptrdiff_t)offset) = luacob_l2n<VarType>(L, 3);
@@ -492,13 +490,11 @@ template <typename VarType>
 class GlobalHelper {
  public:
   static int GlobalGet(lua_State *L) {
-    stackDump(L);
     void *ptr = lua_touserdata(L, 3);
     luacob_n2l(L, *(VarType *)ptr);
     return 1;
   }
   static int GlobalSet(lua_State *L) {
-    stackDump(L);
     void *ptr = lua_touserdata(L, 4);
     *(VarType *)ptr = luacob_l2n<VarType>(L, 3);
     return 1;
