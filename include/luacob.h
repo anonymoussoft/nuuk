@@ -73,7 +73,7 @@ template<typename return_type, typename class_type, typename... arg_types>
 struct rm_func_cv<return_type(class_type::*)(arg_types...) const>  {
   using type = return_type(class_type::*)(arg_types...); };
 
-template<typename T> void luacob_pushobj(lua_State *L, T obj);
+template<typename T> void luacob_pushobj(lua_State *L, T&& obj);
 template<typename T> T luacob_toobj(lua_State *L, int idx);
 
 // lua index value to native。return stack[i]
@@ -128,22 +128,17 @@ struct is_fundamental_type {
     static constexpr bool value = std::is_fundamental<std::decay_t<T>>::value || is_one_of<std::decay_t<T>, std::string, char*, char const*, void*>::value; };
 
 template<typename T>
-std::decay_t<T> luacob_l2n(type<T>, lua_State *L, int i) { return luacob_basic_l2n<std::decay_t<T>>(L, i); }
+T luacob_l2n(type<T>, lua_State *L, int i) { return luacob_basic_l2n<T>(L, i); }
 
 template<typename T>
-using luacob_trans_type_t = std::conditional_t<is_fundamental_type<T>::value, std::decay_t<T>, std::remove_cv_t<T>>;
+using luacob_trans_type_t = std::conditional_t<is_fundamental_type<T>::value, std::decay_t<T>, std::add_lvalue_reference_t<std::remove_cv_t<std::remove_reference_t<T>>>>;
 
 template<typename T, typename U = luacob_trans_type_t<T>>
 U luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<U>{}, L, i); }
 
-// template<typename T> std::enable_if_t<is_fundamental_type<T>::value, std::decay_t<T>>
-// luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<std::decay_t<T>>{}, L, i); }
-// template<typename T> std::enable_if_t<!is_fundamental_type<T>::value, std::remove_cv_t<T>>
-// luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<std::remove_cv_t<T>>{}, L, i); }
-
 // native value push to lua stack
 template<typename T>
-void luacob_basic_n2l(lua_State *L, T v) { luacob_pushobj(L, v); }
+void luacob_basic_n2l(lua_State *L, T&& v) { luacob_pushobj(L, std::forward<T>(v)); }
 inline void luacob_basic_n2l(lua_State *L, bool v) { lua_pushboolean(L, v); }
 inline void luacob_basic_n2l(lua_State *L, char v) { lua_pushinteger(L, v); }
 inline void luacob_basic_n2l(lua_State *L, unsigned char v) { lua_pushinteger(L, v); }
@@ -163,9 +158,9 @@ inline void luacob_basic_n2l(lua_State *L, void *v) { lua_pushlightuserdata(L, v
 inline void luacob_basic_n2l(lua_State *L, std::string v) { lua_pushlstring(L, v.c_str(), v.size()); }
 inline void luacob_basic_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L, f, 0); }
 
-template<typename T>
-void luacob_n2l(lua_State *L, T v) {
-  luacob_basic_n2l(L, std::decay_t<T>(v)); }
+template<typename T, typename U = luacob_trans_type_t<T>>
+void luacob_n2l(lua_State *L, T&& v) {
+  luacob_basic_n2l(L, std::forward<U>((U)v)); }
 
 inline int LuacobAbsIndex(lua_State *L, int idx) {
   int top = lua_gettop(L);
@@ -193,7 +188,7 @@ return_type LuacobCallHelper(
 template<size_t... Integers, typename return_type, typename class_type, typename... arg_types, typename Tuple>
 return_type LuacobCallHelper(
     lua_State *L, class_type *obj, return_type(class_type::*func)(arg_types...),
-    std::index_sequence<Integers...> &&, Tuple &t) {
+    std::index_sequence<Integers...> &&, Tuple &&t) {
   return (obj->*func)(std::get<Integers>(t)...);
 }
 
@@ -215,11 +210,11 @@ auto LuacobExtractFromL(lua_State *L, return_type(class_type::*func)(arg_types..
 struct PushLFunctor
 {
   template<typename T>
-  void operator()(lua_State *L, T t) const { luacob_n2l(L, t); }
+  void operator()(lua_State *L, T&& v) const { luacob_n2l(L, std::forward<T>(v)); }
 };
 
 template<std::size_t I = 0, typename FuncT, typename... Tp>
-inline typename std::enable_if<I == sizeof...(Tp), void>::type
+inline typename std::enable_if<I >= sizeof...(Tp), void>::type
 tuple_push_index(lua_State *, int, std::tuple<Tp...> &, FuncT)
 { }
 
@@ -293,11 +288,8 @@ LuacobObjectFunction LuacobAdapter(void(T::*func)(arg_types...),
                                    std::vector<int> &qualifiers) {
   return [=](void *obj, lua_State *L) {
            auto&& arg_tmp = LuacobExtractFromL(L, func, std::index_sequence_for<arg_types...>());
-           std::cout << typeid(std::get<0>(arg_tmp)).name() << std::endl;
-           std::cout << typeid(std::get<1>(arg_tmp)).name() << std::endl;
            LuacobCallHelper(L, (T*)obj, func, std::index_sequence_for<arg_types...>(), arg_tmp);
            int result_cnt = 0;
-           std::cout << "1" << std::endl;
            for (int i = 0; i < qualifiers.size(); ++i) {
              if ((qualifiers.at(i) & _out) != 0) {
                // luacob_n2l(L, std::get<i>(arg_tmp));
@@ -605,6 +597,7 @@ class LuaObject {
     return lua_typename(L_, lua_type(L_, -1)); }
   int Type() const {
     luacob_assert(L_); LUA_FASTREF_PUSH(); return lua_type(L_, -1); }
+  int Ref() const { return ref_; }
   template<typename T>T Value() {
     luacob_assert(L_); LUA_FASTREF_PUSH(); return luacob_l2n<T>(L_, -1); }
 
@@ -1000,15 +993,17 @@ int lua_object_gc(lua_State *L) {
   return 0;
 }
 
-template<>
-void luacob_pushobj(lua_State *L, LuaObject obj) {
-  obj.Push(LuacobTo_LuaState(L));
+template<typename T>
+void luacob_pushobj(lua_State *L, T&& obj) {
+  LuaState *state = LuacobTo_LuaState(L);
+  LuaObject o = GetCachedObject(state, &obj);
+  o.Push(state);
 }
 
-// template<typename T>
-// void luacob_pushobj(lua_State *L, T obj) {
-//     std::cout << "luacob_pushobj1" << std::endl;
-// }
+template<>
+void luacob_pushobj(lua_State *L, LuaObject& obj) {
+  obj.Push(LuacobTo_LuaState(L));
+}
 
 // template<>
 // void luacob_pushobj(lua_State *L, LuaObject obj) {
@@ -1032,16 +1027,16 @@ T luacob_toobj(lua_State *L, int idx) {
   //               "T should be declared export !");
   // static_assert(std::is_final<typename std::remove_pointer<T>::type>::value,
   //               "T should be declared final !");
-  T obj = nullptr;
+  std::decay_t<T> *obj = nullptr;
   idx = LuacobAbsIndex(L, idx);
 
   if (lua_istable(L, idx)) {
     lua_pushstring(L, "__object");
     lua_rawget(L, idx);
-    obj = (T)lua_touserdata(L, -1);
+    obj = (std::decay_t<T> *)lua_touserdata(L, -1);
     lua_pop(L, 1);
   }
-  return obj;
+  return *obj;
 }
 
 template<>
@@ -1234,6 +1229,61 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
   lua_remove(L, -2);
 }
 
+inline void CacheObject(LuaState *state, void *p, LuaObject &obj) {
+  luacob_assert(p);
+  lua_State *L = LuacobTo_lua_State(state);
+  lua_getfield(L, LUA_REGISTRYINDEX, "__objects__");
+  if (!lua_istable(L, -1))
+  {
+    lua_newtable(L);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "__objects__");
+  }
+  if (lua_rawgetp(L, -1, p) != LUA_TNUMBER) {
+    lua_pop(L, 1);
+    obj.Push(state);
+    int ref = lua_fastref(L);
+    lua_pushnumber(L, ref);
+    lua_rawsetp(L, -2, p);
+  } else {
+    luacob_assert(0);
+  }
+}
+
+inline void RemoveCache(LuaState *state, void *p) {
+  luacob_assert(p);
+  lua_State *L = LuacobTo_lua_State(state);
+  lua_getfield(L, LUA_REGISTRYINDEX, "__objects__");
+  if (!lua_istable(L, -1)) { return; }
+  if (lua_rawgetp(L, -1, p) != LUA_TNUMBER) { return; }
+  lua_fastunref(L, luacob_l2n<int>(L, -1));
+}
+
+LuaObject GetCachedObject(LuaState *state, void *p) {
+  luacob_assert(p);
+  lua_State *L = LuacobTo_lua_State(state);
+  lua_getfield(L, LUA_REGISTRYINDEX, "__objects__");
+  if (!lua_istable(L, -1))
+  {
+    lua_newtable(L);
+    lua_pushvalue(L, -1);
+    lua_setfield(L, LUA_REGISTRYINDEX, "__objects__");
+  }
+
+  int type = lua_rawgetp(L, -1, p);
+  if (type == LUA_TNUMBER) {
+    int ref = luacob_l2n<int>(L, -1);
+    lua_getfastref(L, ref);
+    LuaObject obj(state, -1);
+    lua_pop(L, 3);
+    return obj;
+  } else {
+    lua_pop(L, 1);
+    luacob_assert(0);
+    return LuaObject{};
+  }
+}
+
 }  // namespace luacob
 
 #define LUACOB_CLASS_METATABLE_NAME(classname) "__##classname##_mtbl"
@@ -1258,6 +1308,7 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
     luacob::LuaObject mtbl = globals.Get(                               \
         LUACOB_CLASS_METATABLE_NAME(wrapper_class));                    \
     ins.SetMetatable(mtbl);                                             \
+    CacheObject(state, reinterpret_cast<void*>(obj), ins);              \
                                                                         \
     state->Push(ins);                                                   \
     return 1;                                                           \
@@ -1298,6 +1349,7 @@ inline void PushObjectFuncTbl(LuaState *state, LuaObject &mtbl) {
     luacob::LuaObject mtbl = globals.Get(                               \
         LUACOB_CLASS_METATABLE_NAME(wrapper_class));                    \
     ins.SetMetatable(mtbl);                                             \
+    CacheObject(state, reinterpret_cast<void*>(obj), ins);              \
                                                                         \
     state->Push(ins);                                                   \
     return 1;                                                           \
