@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: final.h
- * Time-stamp: <2019-04-24 03:34:58>
+ * Time-stamp: <2019-05-09 15:40:56>
  * Description:
  * Author: bin.gao
  *
@@ -20,7 +20,7 @@ class FinalClass final {
   int MultiRet(int a, int &b, std::string &c) {
     a += 1;
     b += 1;
-    c += "_ret";
+    c += "_tail";
     return 0;
   }
 };
@@ -69,7 +69,7 @@ end
 if b ~= 3 then
     error("unexpected result from final:MultiRet, b=" .. tostring(b))
 end
-if c ~= "test_ret" then
+if c ~= "test_tail" then
     error("unexpected result from final:MultiRet, c=" .. tostring(c))
 end
 print("==== test final class success ====\n")

@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2019 anonymoussoft.com.  All rights reserved.
  * File: juce_hooks.h
- * Time-stamp: <2019-03-09 01:00:57>
+ * Time-stamp: <2019-05-09 03:22:28>
  * Description:
  * Author: bin.gao
  *
@@ -51,7 +51,7 @@ void luacob_basic_n2l(lua_State *L, const juce::Range<T> &v) {
 }
 
 template<typename T>
-juce::Point<T> luacob_l2n(type<juce::Range<T>>, lua_State *L, int i) {
+juce::Point<T> luacob_l2n(type<juce::Point<T>>, lua_State *L, int i) {
     luacob::LuaObject obj(LuacobTo_LuaState(L), i);
     juce::Point<T> r(obj.Get("x").Value<T>(), obj.Get("y").Value<T>());
     return r;

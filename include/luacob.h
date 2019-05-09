@@ -77,7 +77,6 @@ template<typename T> void luacob_pushobj(lua_State *L, T obj);
 template<typename T> T luacob_toobj(lua_State *L, int idx);
 
 // lua index value to native。return stack[i]
-
 template<typename T>
 T luacob_basic_l2n(lua_State *L, int i) { return luacob_toobj<T>(L, i); }
 template<> inline bool luacob_basic_l2n<bool>(lua_State *L, int i) {
@@ -106,7 +105,7 @@ template<> inline float luacob_basic_l2n<float>(lua_State *L, int i) {
   return (float)luaL_checknumber(L, i); }
 template<> inline double luacob_basic_l2n<double>(lua_State *L, int i) {
   return luaL_checknumber(L, i); }
-template<> inline const char *luacob_basic_l2n<const char*>(lua_State *L, int i) {
+template<> inline char const*luacob_basic_l2n<char const*>(lua_State *L, int i) {
   return luaL_checkstring(L, i); }
 template<> inline std::string luacob_basic_l2n<std::string>(lua_State *L, int i) {
   size_t len = 0;
@@ -117,11 +116,30 @@ template<> inline std::string luacob_basic_l2n<std::string>(lua_State *L, int i)
 template <typename T>
 struct type{};
 
+template <typename...>
+struct is_one_of { static constexpr bool value = false; };
+
+template <typename F, typename S, typename... T>
+struct is_one_of<F, S, T...> {
+    static constexpr bool value = std::is_same<F, S>::value || is_one_of<F, T...>::value; };
+
 template<typename T>
-std::decay_t<T> luacob_l2n(type<T>, lua_State *L, int i) {
-  return luacob_basic_l2n<std::decay_t<T>>(L, i); }
+struct is_fundamental_type {
+    static constexpr bool value = std::is_fundamental<std::decay_t<T>>::value || is_one_of<std::decay_t<T>, std::string, char*, char const*, void*>::value; };
+
 template<typename T>
-std::decay_t<T> luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<T>{}, L, i); }
+std::decay_t<T> luacob_l2n(type<T>, lua_State *L, int i) { return luacob_basic_l2n<std::decay_t<T>>(L, i); }
+
+template<typename T>
+using luacob_trans_type_t = std::conditional_t<is_fundamental_type<T>::value, std::decay_t<T>, std::remove_cv_t<T>>;
+
+template<typename T, typename U = luacob_trans_type_t<T>>
+U luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<U>{}, L, i); }
+
+// template<typename T> std::enable_if_t<is_fundamental_type<T>::value, std::decay_t<T>>
+// luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<std::decay_t<T>>{}, L, i); }
+// template<typename T> std::enable_if_t<!is_fundamental_type<T>::value, std::remove_cv_t<T>>
+// luacob_l2n(lua_State *L, int i) { return luacob_l2n(type<std::remove_cv_t<T>>{}, L, i); }
 
 // native value push to lua stack
 template<typename T>
@@ -140,7 +158,7 @@ inline void luacob_basic_n2l(lua_State *L, unsigned long long v) { lua_pushinteg
 inline void luacob_basic_n2l(lua_State *L, float v) { lua_pushnumber(L, v); }
 inline void luacob_basic_n2l(lua_State *L, double v) { lua_pushnumber(L, v); }
 inline void luacob_basic_n2l(lua_State *L, char *v) { lua_pushstring(L, v); }
-inline void luacob_basic_n2l(lua_State *L, char const *v) { lua_pushstring(L, v); }
+inline void luacob_basic_n2l(lua_State *L, char const* v) { lua_pushstring(L, v); }
 inline void luacob_basic_n2l(lua_State *L, void *v) { lua_pushlightuserdata(L, v); }
 inline void luacob_basic_n2l(lua_State *L, std::string v) { lua_pushlstring(L, v.c_str(), v.size()); }
 inline void luacob_basic_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L, f, 0); }
@@ -148,16 +166,6 @@ inline void luacob_basic_n2l(lua_State *L, lua_CFunction f) { lua_pushcclosure(L
 template<typename T>
 void luacob_n2l(lua_State *L, T v) {
   luacob_basic_n2l(L, std::decay_t<T>(v)); }
-
-// template<class T>
-// void luacob_n2l(lua_State *L, const std::map<char*, T> &m) {
-//     lua_newtable(L);
-//     int i = lua_gettop(L);
-//     for (auto it = m.begin(); it != m.end(); ++it) {
-//         luacob_n2l(L, it->second);
-//         lua_setfield(L, i, it->first);
-//     }
-// }
 
 inline int LuacobAbsIndex(lua_State *L, int idx) {
   int top = lua_gettop(L);
@@ -186,7 +194,6 @@ template<size_t... Integers, typename return_type, typename class_type, typename
 return_type LuacobCallHelper(
     lua_State *L, class_type *obj, return_type(class_type::*func)(arg_types...),
     std::index_sequence<Integers...> &&, Tuple &t) {
-  //auto params = { arg_types... };
   return (obj->*func)(std::get<Integers>(t)...);
 }
 
@@ -196,8 +203,12 @@ using tuple_with_removed_refs = std::tuple<typename std::remove_reference<T>...>
 template<size_t... Integers, typename return_type, typename class_type, typename... arg_types>
 auto LuacobExtractFromL(lua_State *L, return_type(class_type::*func)(arg_types...),
                         std::index_sequence<Integers...> &&) {
-  std::tuple<std::decay_t<arg_types>...> arg_tmp(
-      luacob_l2n<std::decay_t<arg_types>>(L, Integers + 2)...);
+  // return std::forward_as_tuple(luacob_l2n<arg_types>(L, Integers + 2)...);
+  // std::tuple<std::decay_t<arg_types>...> arg_tmp(
+  //     luacob_l2n<std::decay_t<arg_types>>(L, Integers + 2)...);
+  // return arg_tmp;
+  std::tuple<luacob_trans_type_t<arg_types>...> arg_tmp(
+      luacob_l2n<arg_types>(L, Integers + 2)...);
   return arg_tmp;
 }
 
@@ -281,7 +292,9 @@ template<typename T, typename... arg_types>
 LuacobObjectFunction LuacobAdapter(void(T::*func)(arg_types...),
                                    std::vector<int> &qualifiers) {
   return [=](void *obj, lua_State *L) {
-           auto arg_tmp = LuacobExtractFromL(L, func, std::index_sequence_for<arg_types...>());
+           auto&& arg_tmp = LuacobExtractFromL(L, func, std::index_sequence_for<arg_types...>());
+           std::cout << typeid(std::get<0>(arg_tmp)).name() << std::endl;
+           std::cout << typeid(std::get<1>(arg_tmp)).name() << std::endl;
            LuacobCallHelper(L, (T*)obj, func, std::index_sequence_for<arg_types...>(), arg_tmp);
            int result_cnt = 0;
            std::cout << "1" << std::endl;
